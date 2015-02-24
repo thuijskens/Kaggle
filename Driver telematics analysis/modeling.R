@@ -35,7 +35,7 @@ for(driver in drivers) {
   obs <- currentData$train$target
   
   # Store the predictions and observations in a data rame
-  AUCdata[(1 + counter*nPredictions):(2*counter*nPredictions), ] <- cbind(preds, obs)
+  AUCdata[(1 + counter*nPredictions):(nPredictions + counter*nPredictions), ] <- cbind(preds, obs)
   
   # Increase the counter
   counter <- counter + 1
