@@ -24,44 +24,72 @@ source('preprocessing_helper.R')
 # Get a list of the drivers
 drivers <- list.files('./drivers/')
 
-driverData <- NULL
-
 driversProcessed <- read.csv('drivers_processed.csv')$driverID
 driversToProcess <- setdiff(drivers, driversProcessed)
 
-driverData <- as_data_frame(data.table::fread('drives.csv'))
+# Thomas @ 25-2:
+# Add ride data stepwise for each driver
+# get empty data frame with proper format  
+driverData <- data.table::fread('drives_total.csv', nrows = nRides)
+driverData[,] <- 0
 
-driverData <- driverData[, -1]
+# Execute this only if the drives.csv does not exist
+if(!file.exists('drives_total.csv')) {
+  driverData %>% filter(1 == 0) %>% # get an empty data frame
+    write.table('drives_total.csv', row.name = FALSE, sep = ",") # write only the column names into the .csv file
+}
 
 # For every driver, read in every ride and compute ride features
 for(driver in driversToProcess) {
   dir <- paste0('./drivers/', driver, '/')
   for(i in seq_len(nRides)) {
-    # Read in the drive file
-    ride <- data.table::fread(paste0(dir, i, '.csv'))
-    
-    # Summarize the ride data
-    aggRide <- summarizeRide(ride) %>%
-      mutate(driverID = as.numeric(driver), rideID = i) 
-    
-    # Add the summarized data to the total data
-    driverData <- driverData %>% rbind(aggRide) 
+    tryCatch({
+      # Read in the drive file
+      ride <- data.table::fread(paste0(dir, i, '.csv'))
+      
+      # Summarize the ride data
+      aggRide <- summarizeRide(ride) %>%
+        mutate(driverID = as.numeric(driver), rideID = i) 
+      
+      # Add the summarized data to the total data
+      driverData[i,] <- aggRide
+    },
+    error = function(cond) {
+      message(paste("Error at:", cond))
+      message("Could not read ride", i, "for driver", driver)
+      message("Proceeding to next ride")
+    }
+    )
   }
+  write.table(driverData, 'drives.csv', append = TRUE, row.names = FALSE, sep = ",", col.names = FALSE)
+  driverData[,] <- 0
+  
+  print(paste("Finished processing driver", driver))
 }
 
-# Re-order the columns of the dataset
-driverData %>%
-  select(driverID, rideID, everything())
+# Checks on totaldata
+totaldata <- data.table::fread('drives_total.csv')
+totaldata %>% group_by(driverID) %>% summarise(n = n()) %>% filter(n != 200) # 2525 and 2526
+totaldata %>% select(driverID) %>% unique() %>% dim
+totaldata %>% select(driverID) %>% unique() %in% drivers # there should be 2736 different drivers
 
 # Save the data (SQL)
 drv <- dbDriver("SQLite")
-tfile <- "drives_partial.db"
+tfile <- "drives_total.db"
 con <- dbConnect(drv, dbname = tfile)
-dbWriteTable(con, "drives", as.data.frame(driverData), overwrite = TRUE)
+dbWriteTable(con, "drives", as.data.frame(totaldata), overwrite = TRUE)
 dbDisconnect(con)
 
-# Save the data
-write.csv(driverData, 'drives.csv')
+# Split the data on a driver level
+for(driver in drivers) {
+  dir <- paste0('./aggregated data/', driver, '.csv')
+  
+  totaldata %>% 
+    filter(driverID == driver) %>%
+    select(driverID, rideID, everything()) %>%
+    write.csv(dir, row.names = FALSE)
+  
+  message('Processed driver', driver)
+}
 
-driverData %>% select(driverID) %>% unique() %>%
-  write.csv('drivers_processed.csv')
+
