@@ -4,16 +4,21 @@
 # Input: data_frame with columns x, y 
 summarizeRide <- function(ride, nlag = nDT, avg_trim = avgTrim) {
   
+  # Only sample each nlag-th row from the ride
+  filtered_values <- seq(from = 1, to = dim(ride)[1], by = nlag)
+  ride <- ride[filtered_values, ]
+  
+  # Augment the ride data with extra features
   augmented_ride <- ride %>% 
-    mutate(dx = x - lag(x, nlag),
-           dy = y - lag(y, nlag),
-           speed = sqrt(dx^2 + dy^2)/nlag,
-           tang_accelaration = (speed - lag(speed, nlag))/nlag,
-           curvature = abs(dx*((dy - lag(dy, nlag))/nlag) - dy*((dx - lag(dx, nlag))/nlag))/(dx^2 + dy^2)^(3/2),
+    mutate(dx = x - lag(x, lag = 1),
+           dy = y - lag(y, lag = 1),
+           speed = sqrt(dx^2 + dy^2),
+           tang_accelaration = (speed - lag(speed, lag = 1)),
+           curvature = ifelse(speed == 0, 
+                              yes = 0, 
+                              no = abs(dx*((dy - lag(dy, lag = 1))) - dy*((dx - lag(dx, lag = 1))))/(dx^2 + dy^2)^(3/2)),
            normal_accelaration = curvature*speed^2,
            accelaration = sqrt(tang_accelaration^2 + normal_accelaration^2)) 
-  # curvature is still not good
-  # maybe try delta_distance_y with smaller nlag only for this computation (say 5).
   
   # Compute the quantiles of the features
   tang_accel <- returnQuantiles(augmented_ride$tang_accelaration, "tang_accel")
@@ -37,7 +42,7 @@ summarizeRide <- function(ride, nlag = nDT, avg_trim = avgTrim) {
               total_distance = sum(sqrt(dx^2 + dy^2), na.rm = TRUE),
               stationary = sum(sqrt(dx^2 + dy^2) <= stationary_dist, na.rm = TRUE),
               total_duration = n())
-  
+
   # Join the quantiles with the aggregated ride features (ugly)
   aggRide <- c(aggRide[1,], tang_accel, speed, norm_accel, curvature, accel)
   
@@ -54,7 +59,12 @@ returnQuantiles <- function(x, name, qvec = seq(from = 0.1, to = 1, by = 0.1), s
   x <- x[!is.na(x)]
   
   # Standardize x values
-  x_std <- (x - mean(x, na.rm = TRUE))/sd(x, na.rm = TRUE)
+  sdev <- sd(x, na.rm = TRUE)
+  if (sdev == 0) {
+    x_std <- rep(0, length(x))
+  } else {
+    x_std <- (x - mean(x, na.rm = TRUE))/sdev
+  }
   
   # Compute quantiles
   q <- quantile(x[x_std < std], qvec, na.rm = TRUE)
