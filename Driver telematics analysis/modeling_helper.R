@@ -8,7 +8,7 @@ randomDrivers <- sample(drivers, size = nRandomDrivers + 1, replace = FALSE)
 # Select one random ride from each driver in randomDrivers
 for(driver in randomDrivers) {
   # Load in the data 
-  dir <- paste0('./150303 aggregated data/', driver,'.csv')
+  dir <- paste0('./aggregated data/', driver,'.csv')
   ridesData <- data.table::fread(dir)
   
   # Pick a random ride
@@ -25,7 +25,7 @@ refData <- refData %>% mutate(target = 0)
 # Create a function that splits the data of a driverID and the reference data in a test and training set
 splitData <- function(driverID) {
   # Form training and test set for the driver
-  currentData <- data.table::fread(paste0("./150303 aggregated data/", driverID, ".csv")) %>%
+  currentData <- data.table::fread(paste0("./aggregated data/", driverID, ".csv")) %>%
     mutate(target = 1)
   
   trainDriver <- currentData %>%
@@ -55,7 +55,7 @@ splitData <- function(driverID) {
 
 createData <- function(driverID) {
   # Get data for current driver
-  currentData <- data.table::fread(paste0("./150303 aggregated data/", driverID, ".csv")) %>%
+  currentData <- data.table::fread(paste0("./aggregated data/", driverID, ".csv")) %>%
     mutate(target = 1) 
   
   # Check if current driver is in randomDrivers

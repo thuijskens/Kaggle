@@ -56,3 +56,4 @@ for(driver in drivers) {
 # Form driver_ride column
 names(AUCdata) <- c("driver_trip", "prob")
 write.csv(AUCdata, 'submission.csv', row.names = FALSE)
+

@@ -33,7 +33,7 @@ AUCdata <- data.frame(preds1 = numeric(length(drivers)*nPredictions),
                       preds2 = numeric(length(drivers)*nPredictions),
                       preds3 = numeric(length(drivers)*nPredictions),
                       stackpred = numeric(length(drivers)*nPredictions),
-                      obs = integer(length(drivers)*nPredictions))
+                      obs = factor(x = numeric(length(drivers)*nPredictions), levels = c(0, 1)))
 counter <- 0
 
 for(driver in drivers) {
@@ -42,8 +42,8 @@ for(driver in drivers) {
   
   # Fit a linear model
   model1 <- glm(target ~ total_duration + total_distance + stationary + norm_accel_50_perc + tang_accel_50_perc + accel_50_perc + speed_50_perc, 
-               data = currentData$train, 
-               family = binomial(link = "logit"))
+                data = currentData$train, 
+                family = binomial(link = "logit"))
   
   # Fit a GBM
   model2 <- gbm(formula = target ~ . - driverID - rideID,
@@ -59,8 +59,7 @@ for(driver in drivers) {
   
   # Stacking the models
   stackdf <- data.frame(target = currentData$train$target,
-                        pred_glm = predict(model1,
-                                           type = "response"),
+                        pred_glm = predict(model1, type = "response"),
                         pred_gbm = predict(model2, n.trees = 100, type = "response"),
                         pred_rf = predict(model3, type = "prob")[,2])
   
@@ -69,25 +68,16 @@ for(driver in drivers) {
                 family = binomial(link = "logit"))
   
   # Predict the labels
-  preds1 <- predict(model1, 
-                    newdata = currentData$test, 
-                    type = "response")
-  
+  preds1 <- predict(model1, newdata = currentData$test, type = "response")
   preds2 <- predict(model2, newdata = currentData$test, n.trees = 100, type = "response") 
-  
-  preds3 <- predict(model3, 
-                    newdata = select(currentData$test, -driverID, -rideID, -target), 
-                    type = "prob")[,2]
+  preds3 <- predict(model3, newdata = select(currentData$test, -driverID, -rideID, -target), type = "prob")[,2]
   
   stackdf_pred <- data.frame(target = currentData$test$target,
                              pred_glm = preds1,
                              pred_gbm = preds2,
                              pred_rf = preds3)
   
-  stackpred <- predict(stack1,
-                       newdata = stackdf_pred,
-                       type = "response")
-  
+  stackpred <- predict(stack1, newdata = stackdf_pred, type = "response")  
   obs <- currentData$test$target
   
   # Store the predictions and observations in a data rame
@@ -98,8 +88,6 @@ for(driver in drivers) {
   
   message("Finished processing driver ", driver)
 }
-
-# check driver 1117 with ride 130. Line 35 of currentData$test data frame
 
 totalPreds1 <- ROCR::prediction(AUCdata$preds1, AUCdata$obs)
 totalPreds2 <- ROCR::prediction(AUCdata$preds2, AUCdata$obs)
@@ -121,14 +109,3 @@ plot(perf2, col = "red", add = TRUE)
 plot(perf3, col = "blue", add = TRUE)
 plot(perf4, col = "yellow", add = TRUE)
 
-#####
-## PCA test
-#####
-
-currentData <-splitData(2)
-pca <- princomp(select(currentData$train, total_duration, total_distance, stationary, norm_accel_50_perc, tang_accel_50_perc, accel_50_perc, speed_50_perc), cor = TRUE)
-summary(pca)
-biplot(pca)
-pairs(pca$scores[, 1:3], col = currentData$train$target + 2)
-
-######

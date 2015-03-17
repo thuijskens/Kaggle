@@ -33,7 +33,7 @@ if(file.exists('drivers_processed.csv')) {
 }
 
 # Format the data (from earlier runs)
-driverData <- data.table::fread('150303 drives_total.csv', nrows = nRides)
+driverData <- data.table::fread('drives_template.csv', nrows = nRides)
 driverData[,] <- 0
 
 # For every driver, read in every ride and compute ride features
@@ -59,7 +59,7 @@ for(driver in driversToProcess) {
     )
   }
   # Write summarized data to file
-  dir <- paste0('./150303 aggregated data/', driver, '.csv')
+  dir <- paste0('./aggregated data/', driver, '.csv')
   write.csv(driverData, dir, row.names = FALSE)
   
   # Clean up
@@ -67,8 +67,8 @@ for(driver in driversToProcess) {
   print(paste("Finished processing driver", driver))
 }
 
-# Runtime: 5 hours
+# Runtime: 5 hours on i7 ultrabook @ 2.5 GHz
 
 # Checks on totaldata
-totaldrivers <- list.files('./150303 aggregated data/')
+totaldrivers <- list.files('./aggregated data/')
 length(totaldrivers) # should be 2736
